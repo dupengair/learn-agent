@@ -1,0 +1,95 @@
+name: deploy-pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/deploy-pages.yml"
+      - "scripts/**"
+      - "tests/test_homepage_index.py"
+      - "index*.md"
+      - "mkdocs.yml"
+      - "extras/**"
+      - "web-astro/**"
+      - "book*/**"
+      - "README*.md"
+      - "docs/*/README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'deploy' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Silence the MkDocs 2.0 banner. We pin to mkdocs-material 9.x in
+      # requirements-docs.txt, so the upcoming breaking change doesn't
+      # affect us until we explicitly upgrade. The variable name is read
+      # by material/templates/__init__.py and stable across 9.x releases.
+      NO_MKDOCS_2_WARNING: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install MkDocs Material
+        run: pip install -r requirements-docs.txt
+      - name: Test homepage generation
+        run: |
+          pip install pytest
+          python -m pytest tests/test_homepage_index.py -q
+      - name: Assemble docs
+        run: bash scripts/build_site.sh
+      - name: Build site
+        run: mkdocs build -d site
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web-astro/package-lock.json
+      - name: Install Astro dependencies
+        working-directory: web-astro
+        run: npm ci
+      - name: Check and test Astro
+        working-directory: web-astro
+        run: |
+          npm run check
+          npm run build
+          npm test
+      - name: Build Astro for GitHub Pages
+        working-directory: web-astro
+        env:
+          ASTRO_BASE: /${{ github.event.repository.name }}/astro/
+        run: |
+          npm run build
+          npm run check:deployment
+      - name: Include Astro in the Pages artifact
+        run: |
+          mkdir -p site/astro
+          cp -R web-astro/dist/. site/astro/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    # Publishing is owned by the canonical repository; forks still verify builds.
+    if: github.repository == 'bojieli/ai-agent-book' && github.event_name != 'pull_request'
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

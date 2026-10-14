@@ -1,0 +1,54 @@
+# ============================================================
+# 个人 AI Agent 学习仓库 · 根 .gitignore
+# 仓库内容：CLAUDE.md + docs/ + ai-agent-book/（个人修改版）
+# 注意：ai-agent-book/.gitignore（上游自带）同时生效，与本文件叠加——
+#       它已忽略 results/、*.log、*.epub、chapter1/web-search-agent/validation/*
+#       等运行产物，此处不重复声明这些子树规则。
+# ============================================================
+
+# ---- 嵌套 git 元数据（上游克隆自 bojieli/ai-agent-book，781MB 历史，绝不提交）----
+ai-agent-book/.git/
+
+# ---- Python 运行产物 ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# ---- 敏感与本地配置（将来若在根目录放置真实 key，绝不入库）----
+.env
+.env.local
+.env.*.local
+
+# ---- 运行时生成物 ----
+*.log
+research_report.json
+
+# ---- 上游作者的实验证据文件（~445MB，学习仓库无需复核）----
+# receipts.json、视频源缓存 .mov 等运行产物。
+# 注意 ** 跨层级：实际路径形如 chapter5/video-edit/validation/runs/。
+# results/ 类文件无需在此声明：上游 ai-agent-book/.gitignore 已做过精细
+# 筛选（通用忽略 results/，仅强制保留 chapter7 两组评测证据，约 35MB）。
+**/validation/runs/
+**/validation/source_cache/
+
+# ---- 编辑器 / OS 垃圾 ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ============================================================
+# 可选项：灰色地带，默认提交，按需取消注释以减小仓库体积
+# ============================================================
+
+# 上游作者的 Cursor 写书聊天记录（5.1MB，与学习无关）
+# ai-agent-book/cursor-chats/
+
+# attention_visualization 前端演示用轨迹数据（~71MB，含 48MB 单文件）
+# ai-agent-book/chapter2/attention_visualization/frontend/public/trajectories/
