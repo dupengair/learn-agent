@@ -13,6 +13,8 @@
 │       ├── 03_chapter1_web-search-agent-quickstart.md # quickstart.py 本地化改造
 │       ├── 04_chapter1_web-search-agent-examples.md   # examples.py 本地化 + 共享函数抽取
 │       ├── 05_chapter1_web-search-agent-main.md       # main.py 对齐（三入口统一）
+│       ├── 06_chapter1_context.md                     # 实验 1-1 context 消融实验解析
+│       ├── 07_chapter1_context-ablation-analysis.md   # 消融五组实测轨迹差异分析（Ollama）
 │       ├── evidence/    # 实验运行证据（ReAct 轨迹 JSON）
 │       └── patches/     # 预留
 └── ai-agent-book/       # 教科书个人修改版（详见下方说明）
@@ -59,11 +61,20 @@
 
 > 切回 Kimi 联网模式：`.env` 换成真实 Moonshot key、去掉 `SEARCH_BACKEND=mock`、端点回官方即可，代码零改动。本地 mock 模式下模型不联网，演示的是 ReAct 循环链路本身。
 
+## 本地化改造：chapter1/context 消融实验默认本地 Ollama
+
+实验 1-1（上下文消融）改造后（`chapter1/context/`）：
+
+- **`main.py` / `run_experiment_1_1.py`**：`--provider` 默认改为 `ollama`，`--model` 默认读 `OLLAMA_MODEL`（复制 `env.example` 为 `.env` 即可零参数运行）
+- **`env.example`**：新增本地 Ollama 配置段（`OLLAMA_BASE_URL` / `OLLAMA_API_KEY` / `OLLAMA_MODEL`）
+- **`agent.py`**：修复 `openai.APITimeoutError` 的导入方式，增加 `RateLimitError` 捕获
+- **实测**：五组消融已用 `qwen3.5-4b:q4` 跑通（2026-10-15），实测记录见 `chapter1/context/README.md`「本地 Ollama 执行」一节，逐组轨迹分析见 `docs/ai-agent-book/07_chapter1_context-ablation-analysis.md`
+
 ## 学习进度
 
 | 章节 | 状态 | 笔记 |
 | --- | --- | --- |
-| 第 1 章 Agent 基础（实验 1-2 web-search-agent） | ✅ 已跑通 + 本地化改造 | docs/ai-agent-book/ 01–05 |
+| 第 1 章 Agent 基础（实验 1-1 context、实验 1-2 web-search-agent） | ✅ 已跑通 + 本地化改造 | docs/ai-agent-book/ 01–07 |
 | 第 2–10 章 | 📚 待学习 | — |
 
 ## 许可

@@ -1209,13 +1209,16 @@ def main():
     parser.add_argument(
         "--provider",
         choices=SUPPORTED_PROVIDERS,
-        default="doubao",
-        help="LLM 提供商（默认：doubao；openrouter 或缺失主 key 时经 OpenRouter 兜底；ollama 为本地免费）"
+        default="ollama",
+        help="LLM 提供商（默认：ollama 本地模型；其他可选 doubao/dashscope/siliconflow/kimi 等，"
+             "openrouter 或缺失主 key 时经 OpenRouter 兜底）"
     )
     parser.add_argument(
         "--model",
         type=str,
-        help="使用的模型名称（可选，不指定则使用该提供商的默认模型）"
+        default=os.getenv("OLLAMA_MODEL", "qwen3.5-4b:q4"),
+        help=f"使用的模型名称（默认 {os.getenv('OLLAMA_MODEL', 'qwen3.5-4b:q4')}，"
+             "本地模式读 OLLAMA_MODEL 环境变量；其他提供商不指定则用其默认模型）"
     )
     parser.add_argument(
         "--api-key",

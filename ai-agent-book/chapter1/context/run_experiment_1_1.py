@@ -565,16 +565,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--provider",
-        default="kimi",
+        default="ollama",
         choices=SUPPORTED_PROVIDERS,
-        help="Provider to run every arm against (default: kimi).",
+        help="Provider to run every arm against (default: ollama, local; "
+             "与 main.py 的本地化默认一致).",
     )
     parser.add_argument(
         "--model",
-        default=None,
-        help="Model id. Defaults to the chosen provider's registry default, so "
-             "--provider alone is enough; naming a model from another provider "
-             "is what makes every arm fail with a 400.",
+        default=os.getenv("OLLAMA_MODEL", "qwen3.5-4b:q4"),
+        help="Model id (default: OLLAMA_MODEL env or qwen3.5-4b:q4, 本地模式). "
+             "Naming a model from another provider is what makes every arm "
+             "fail with a 400.",
     )
     parser.add_argument(
         "--modes",

@@ -160,6 +160,37 @@ python run_experiment_1_1.py --provider kimi --modes no_tool_results --hidden-re
 
 系统性地移除上下文组件，以理解其重要性。
 
+#### 本地 Ollama 执行（qwen3.5-4b:q4，2026-10-15）
+
+本仓库已把该实验的默认提供商本地化为 Ollama（OpenAI 兼容端点
+`http://localhost:8000/v1`）。五组消融实测（证据：
+`validation/real_20261015T084659Z/`，该目录不入库）：
+
+| 实验组 | 迭代 | 工具行动 | 重复行动 | outcome |
+|---|---:|---:|---|---|
+| full | 4 | 5 | 否 | `correct` |
+| no history | 5（触顶） | 15 | 是（12） | `no_terminal_response` —— 5 轮推理逐字重复，每轮从零规划 |
+| no reasoning | 3 | 4 | 否 | `correct` —— 同样测不出退化，反而快一轮 |
+| no tool definitions | 1 | 0 | 否 | `unsupported_numbers` —— 报出 9,600,000（与真值差 0.03%） |
+| no tool results | 5（触顶） | 11 | 是（5） | `no_terminal_response` —— 知道结果没来，不断换格式/换工具重试 |
+
+与 Kimi K3 最有价值的差异在「移除工具定义」组：Kimi K3 在带约束任务下声明会话中没有
+可用的换汇工具（`no_unsupported_numbers`），而这个 4B 本地模型在同样的带约束任务下仍
+用记忆中的近似汇率拼出了平滑的整数总额——印证了上文「不同模型的幻觉率差异很大，提示词
+约束只能降低概率」的判断。两个失败组的死循环方式也不同：`no_history` 是逐字失忆重复，
+`no_tool_results` 则是「察觉结果没来、却察觉不到结果永远不会来」的盲目执行。
+
+```bash
+python run_experiment_1_1.py --provider ollama
+```
+
+本次运行 `experiment_execution_accepted: false`——`full` 组的
+`reasoning_retained_after_first_turn` 与 `no_reasoning` 组的
+`provider_generated_reasoning` 检查未通过（本地端点 reasoning 字段的形态与验收检查器
+的预期不同），因此不会覆盖 [validation/latest.json](validation/latest.json)；五组
+`outcome` 行为结论不受影响。逐组轨迹分析见
+[docs/ai-agent-book/07 笔记](../../../docs/ai-agent-book/07_chapter1_context-ablation-analysis.md)。
+
 #### 测试场景
 
 需要以下能力的复杂财务分析任务：
@@ -229,7 +260,14 @@ python -m pytest .
 
 ### 支持的 LLM 提供商
 
-#### Doubao（字节跳动）— 默认
+#### 本地 Ollama — 本仓库默认
+
+- **模型**：`qwen3.5-4b:q4`（读 `OLLAMA_MODEL` 环境变量，可自定义）
+- **API**：本机 Ollama 的 OpenAI 兼容端点（`OLLAMA_BASE_URL`，默认 `http://localhost:8000/v1`）
+- **适合**：零成本本地复现五组消融；需支持 function calling 的模型
+- **说明**：`--provider ollama` 已是 `main.py` / `run_experiment_1_1.py` 的默认值，复制 `env.example` 为 `.env` 即可零参数运行；实测记录见上文「本地 Ollama 执行」
+
+#### Doubao（字节跳动）
 
 - **模型**：`doubao-seed-1-6-thinking-250715`（可自定义）
 - **API**：火山引擎上的 OpenAI 兼容接口
