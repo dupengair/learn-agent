@@ -83,6 +83,51 @@ export OPENROUTER_API_KEY=your-openrouter-api-key
 python main.py --backend openrouter --mode single --request "Search current news"
 ```
 
+### 本地 Ollama 执行（默认路径，local_degraded 模式）
+
+本仓库当前默认方式：本地 Ollama（需 0.12+，实测 0.35.0）起的
+`qwen3.5-4b:q4`，与 `chapter1/context`、`chapter1/web-search-agent` 共用同一
+套 `.env` 约定。复制 `env.example` 为 `.env` 即可零参数运行：
+
+```bash
+cd chapter1/search-codegen
+
+# 离线核对请求体：本地路径展示的是 function 工具定义（不是托管工具形状）
+python main.py --dry-run --request "东盟 10 国首都之间最近的一对？"
+
+# 单次任务（--backend ollama 为默认；--reasoning/--verbosity 在本地无效，会被忽略）
+python main.py --mode single \
+  --request "查东盟十国首都坐标，用 run_python 枚举 45 对 haversine 距离找最近的一对" \
+  --output result.json
+
+# 完整验收（首都距离 + 澄清续跑两个场景），证据写入 validation/runs/
+python run_experiment_1_3.py --backends ollama
+```
+
+**范式差异（务必理解再运行）**：这个实验的正文验收对象是 Responses API 的
+**服务端托管工具**——`web_search_call` / `code_interpreter_call` 由提供商
+服务器执行。Ollama 说同一种协议（`/v1/responses`、typed output items、多轮
+对话都在，已实测），但它背后没有任何东西可以执行托管工具。因此本地路径把
+两个托管工具降级为**本地 function 工具 + 客户端执行循环**：
+
+| | 托管路径（openai / dashscope） | 本地路径（ollama） |
+| :-- | :-- | :-- |
+| 工具声明 | `{"type": "web_search"}` 等托管形状 | `web_search` / `run_python` 两个 function 定义 |
+| 工具执行 | 提供商服务端 | 本进程：搜索查内置样本数据集，Python 走 subprocess 沙箱（30s 超时） |
+| 多轮状态 | `previous_response_id` | 全量 input-items 数组（0.35 实测 `previous_response_id` + `function_call_output` 组合返回 HTTP 500） |
+| 搜索真实性 | 真实网页 + URL 引用 | **mock 样本数据**（无 URL） |
+
+**本地验收语义（如实标注）**：`run_experiment_1_3.py --backends ollama` 仍
+会输出 `passed`，但证据 JSON 会带 `local_degraded` 戳记，验收含义降级为——
+✅ 可以验证：function 工具往返完整、澄清先于工具调用、45 对 haversine 计算
+结果与独立参考一致（计算环节正确性）。❌ 不能验证：搜索环节的数据真实性
+（mock 语料与独立参考坐标故意同源，这一点在 `local_tools.py` 模块注释里
+也有声明）。它不冒充托管工具验收；需要验证搜索真实性时用上面的联网路径。
+
+独立参考数值以 `run_experiment_1_3.py` 的 `independent_asean_reference()`
+实际输出为准（当前代码与标准坐标算得吉隆坡—新加坡 ≈309.3 km；README 早前
+记录的 316.35 km 与当前参考代码不符，阅读历史记录时注意区分）。
+
 <a id="learning-2"></a>
 
 ## 按照步骤完成实验

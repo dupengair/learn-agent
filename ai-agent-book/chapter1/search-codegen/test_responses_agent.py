@@ -1,6 +1,10 @@
+import json
+
 from agent import GPT5NativeAgent
 from config import Config
+from local_tools import execute_local_tool
 from run_experiment_1_3 import (
+    AMBIGUOUS_TASK,
     acceptance,
     independent_asean_reference,
     validate_asean,
@@ -190,3 +194,115 @@ def test_acceptance_is_multi_provider_not_openai_gated():
     result = acceptance([openrouter_run])
     assert result["passed"] is False
     assert result["openrouter_is_diagnostic_not_acceptance"] is True
+
+
+# ---- Local Ollama path (offline shape/semantic tests) ----
+
+
+def test_ollama_provider_inferred_from_localhost():
+    agent = GPT5NativeAgent(
+        "ollama", base_url="http://localhost:8000/v1", model="qwen3.5-4b:q4"
+    )
+    assert agent.provider == "ollama"
+
+
+def test_ollama_request_uses_local_function_tools():
+    agent = GPT5NativeAgent(
+        "ollama",
+        base_url="http://localhost:8000/v1",
+        model="qwen3.5-4b:q4",
+        provider="ollama",
+    )
+    request = agent._build_responses_request(
+        "task", use_tools=True, reasoning_effort="high", verbosity="high"
+    )
+    # Ollama runs thinking natively and keeps no server state: none of the
+    # hosted-path knobs may leak into the request.
+    for absent in ("reasoning", "text", "store", "background", "tool_choice", "stream"):
+        assert absent not in request
+    tools = request["tools"]
+    assert [tool["name"] for tool in tools] == ["web_search", "run_python"]
+    assert all(tool["type"] == "function" for tool in tools)
+
+
+def test_hosted_request_shapes_are_unchanged():
+    openai_agent = GPT5NativeAgent("key")
+    assert openai_agent.provider == "openai"
+    request = openai_agent._build_responses_request("task")
+    assert request["reasoning"] == {"effort": "low"}
+    assert request["store"] is True
+    assert request["tools"][0]["type"] == "web_search"
+
+
+def test_local_tools_mock_routing_and_sandbox():
+    btc = json.loads(execute_local_tool("web_search", '{"query": "比特币 bitcoin 走势"}'))
+    assert btc["source"] == "local_mock_dataset"
+    assert btc["series"]["sessions"] == 60
+
+    asean = json.loads(
+        execute_local_tool("web_search", '{"query": "ASEAN capitals coordinates"}')
+    )
+    assert len(asean["capitals"]) == 10
+
+    miss = json.loads(execute_local_tool("web_search", '{"query": "weather in Paris"}'))
+    assert miss["result"] is None
+
+    bad_args = json.loads(execute_local_tool("run_python", "not-json"))
+    assert "error" in bad_args
+
+    run = json.loads(execute_local_tool("run_python", '{"code": "print(21*2)"}'))
+    assert run["exit_code"] == 0
+    assert run["stdout"].strip() == "42"
+
+    unknown = json.loads(execute_local_tool("nope", "{}"))
+    assert "unknown tool" in unknown["error"]
+
+
+def test_asean_acceptance_local_degraded_uses_round_trips():
+    result = {
+        "success": True,
+        "provider": "ollama",
+        "requested_model": "qwen3.5-4b:q4",
+        "model": "qwen3.5-4b:q4",
+        "response": "Kuala Lumpur and Singapore: 316.35 km",
+        "tool_round_trips": [
+            {"name": "web_search", "output": '{"capitals": "..."}'},
+            {"name": "run_python", "output": '{"stdout": "316.35"}'},
+        ],
+    }
+    validated = validate_asean(result)
+    assert validated["mode"] == "local_degraded"
+    assert validated["passed"] is True
+
+    # Losing either local tool receipt breaks acceptance, as with hosted runs.
+    result["tool_round_trips"] = result["tool_round_trips"][:1]
+    assert validate_asean(result)["passed"] is False
+
+
+def test_clarification_local_continuation_via_input_history():
+    first = {
+        "success": True,
+        "provider": "ollama",
+        "response": "您希望使用哪个数据源？需要分析哪些技术指标？",
+        "tool_calls": [],
+        "request": {"input": AMBIGUOUS_TASK},
+    }
+    second = {
+        "success": True,
+        "provider": "ollama",
+        "request": {
+            "input": [
+                {"type": "message", "role": "user", "content": AMBIGUOUS_TASK},
+                {"type": "message", "role": "assistant", "content": first["response"]},
+            ]
+        },
+        "response": "MA7/MA20、RSI14 与 MACD 均已通过 run_python 计算。",
+        "tool_round_trips": [
+            {"name": "web_search", "output": '{"series": "..."}'},
+            {"name": "run_python", "output": '{"stdout": "..."}'},
+        ],
+    }
+    validated = validate_clarification(first, second)
+    assert validated["mode"] == "local_degraded"
+    assert validated["checks"]["continuation_used_input_history"] is True
+    assert validated["passed"] is True

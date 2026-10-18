@@ -4,6 +4,15 @@ The previous companion sent Responses-style hosted tools to Chat Completions
 through a proxy and then reported an empty ``tool_calls`` list.  This module
 uses the actual ``/v1/responses`` protocol and preserves its typed output items
 (``web_search_call``, ``code_interpreter_call``, messages, and citations).
+
+Local Ollama path (``provider="ollama"``): Ollama speaks the same protocol but
+has no server behind the hosted tool types, so ``web_search`` /
+``code_interpreter`` degrade to function tools that this process executes
+between model turns (see ``local_tools.py``).  Everything else — typed output
+items, multi-turn linking, clarification-before-tools — is preserved.  Ollama
+0.35.0 rejects ``previous_response_id`` plus a ``function_call_output`` array
+with HTTP 500, so the local loop carries state as a plain input-items array
+instead of server-side state.
 """
 
 from __future__ import annotations
@@ -15,36 +24,81 @@ from typing import Any, Dict, List, Literal, Optional
 
 import requests
 
+# Repo-level tests load this file standalone via importlib, without the
+# experiment directory on sys.path — same fallback pattern as config.py.
+try:
+    from local_tools import execute_local_tool
+except ImportError:  # pragma: no cover - standalone module loading
+    import sys as _sys
+
+    _sys.path.insert(
+        0, str(__import__("pathlib").Path(__file__).resolve().parent)
+    )
+    from local_tools import execute_local_tool
+
 logger = logging.getLogger(__name__)
+
+# Simplified function_call shape re-fed into the input array; matches the
+# form verified against Ollama's /v1/responses in this repository's probes.
+_FUNCTION_CALL_KEYS = ("type", "id", "call_id", "name", "arguments", "status")
 
 
 class GPT5NativeAgent:
-    """GPT-5.6 Sol with OpenAI-hosted web search and Python tools."""
+    """GPT-5.6 Sol with OpenAI-hosted web search and Python tools.
+
+    With ``provider="ollama"`` the same class runs the local-tool variant
+    against an Ollama Responses endpoint (no hosted tools, no server state).
+    """
 
     def __init__(
         self,
         api_key: str,
         base_url: str = "https://api.openai.com/v1",
         model: str = "gpt-5.6-sol",
+        provider: Optional[str] = None,
+        max_tool_rounds: int = 6,
     ):
         if not api_key:
             raise ValueError("An API key is required")
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.provider = (
+        self.provider = provider or (
             "openai" if self.base_url == "https://api.openai.com/v1" else
             "openrouter" if "openrouter.ai" in self.base_url else
             "dashscope" if "dashscope" in self.base_url else
+            "ollama" if "localhost" in self.base_url or "127.0.0.1" in self.base_url else
             "custom"
         )
+        self.max_tool_rounds = max(1, int(max_tool_rounds))
         self.conversation_history: List[Dict[str, Any]] = []
         self.system_prompt = self._create_system_prompt()
         self.previous_response_id: Optional[str] = None
         self.api_turns: List[Dict[str, Any]] = []
+        # Ollama path: full input-items history (user/assistant messages,
+        # function_call + function_call_output pairs) carried across calls.
+        self.local_items: List[Dict[str, Any]] = []
 
-    @staticmethod
-    def _create_system_prompt() -> str:
+    def _create_system_prompt(self) -> str:
+        if self.provider == "ollama":
+            return """You are a deep-research assistant. 你是一名深度研究助手。
+
+Hard rule / 硬性规则: when the user's research request leaves material
+preferences ambiguous — for example which data source to use or which
+technical indicators to compute — ask a concise clarifying question FIRST,
+and do NOT call any tool until the user answers.
+当用户的研究请求没有明确数据来源或具体分析指标时，必须先向用户提问澄清，
+在用户回答之前不要调用任何工具。
+
+After clarification: gather facts with the web_search function tool, and run
+ALL quantitative work through the run_python function tool — never do mental
+arithmetic, and never claim code ran unless a run_python call actually
+completed. Search results come from a small bundled sample dataset, so say so
+when reporting sources.
+澄清之后：用 web_search 工具获取事实；所有定量计算必须通过 run_python 工具
+实际执行，不得口算或声称运行了代码。搜索结果来自本地样本数据集，报告来源时
+如实说明。"""
+
         return """You are a deep-research assistant. 你是一名深度研究助手。
 
 Hard rule / 硬性规则: when the user's research request leaves material
@@ -63,6 +117,48 @@ completed code_interpreter_call.
 code_interpreter 实际执行，不得口算或声称运行了代码。"""
 
     def _tools(self) -> List[Dict[str, Any]]:
+        if self.provider == "ollama":
+            # Ollama has no hosted tools: the same capabilities become
+            # function tools executed locally between model turns.
+            return [
+                {
+                    "type": "function",
+                    "name": "web_search",
+                    "description": (
+                        "Search the bundled local sample dataset (ASEAN "
+                        "capitals and coordinates; synthetic BTC/USD daily "
+                        "closes). Returns JSON."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search keywords",
+                            }
+                        },
+                        "required": ["query"],
+                    },
+                },
+                {
+                    "type": "function",
+                    "name": "run_python",
+                    "description": (
+                        "Run multi-line Python 3 locally and get "
+                        "exit_code/stdout/stderr as JSON."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "Python source code to execute",
+                            }
+                        },
+                        "required": ["code"],
+                    },
+                },
+            ]
         if self.provider == "dashscope":
             # Exact structures from the Alibaba Model Studio Responses API guides.
             return [{"type": "web_search"}, {"type": "code_interpreter"}]
@@ -77,7 +173,7 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
 
     def _build_responses_request(
         self,
-        input_text: str,
+        input_text: Any,
         *,
         use_tools: bool = True,
         tool_choice: Literal["auto", "none", "required"] = "auto",
@@ -86,7 +182,7 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
         max_output_tokens: Optional[int] = None,
         background: bool = False,
     ) -> Dict[str, Any]:
-        if self.provider != "dashscope":
+        if self.provider not in ("dashscope", "ollama"):
             if reasoning_effort not in {"none", "low", "medium", "high", "xhigh", "max"}:
                 raise ValueError("Unsupported GPT-5.6 reasoning effort")
             if verbosity not in {None, "low", "medium", "high"}:
@@ -96,7 +192,13 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
             "instructions": self.system_prompt,
             "input": input_text,
         }
-        if self.provider == "dashscope":
+        if self.provider == "ollama":
+            # Ollama runs qwen thinking natively and has no reasoning.effort /
+            # text.verbosity / store / background knobs. It also rejects
+            # previous_response_id combined with a function_call_output array
+            # (HTTP 500), so the local loop is stateless and never sends it.
+            pass
+        elif self.provider == "dashscope":
             # DashScope runs thinking natively and has no reasoning.effort or
             # text.verbosity knobs; its gateway also drops non-streaming
             # requests that stay silent for ~60s, so streaming is mandatory.
@@ -111,7 +213,8 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
             request["max_output_tokens"] = max_output_tokens
         if use_tools:
             request["tools"] = self._tools()
-            request["tool_choice"] = tool_choice
+            if self.provider != "ollama":
+                request["tool_choice"] = tool_choice
         if self.previous_response_id:
             request["previous_response_id"] = self.previous_response_id
         return request
@@ -230,6 +333,165 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
                                            "message": "stream ended without response.completed"}}, event_counts
         return status_code, final_response, event_counts
 
+    @staticmethod
+    def _function_calls(response: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if not isinstance(response, dict):
+            return []
+        return [
+            item
+            for item in response.get("output") or []
+            if isinstance(item, dict) and item.get("type") == "function_call"
+        ]
+
+    def _process_request_with_local_tools(
+        self,
+        user_request: str,
+        *,
+        use_tools: bool = True,
+        temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+        reasoning_effort: str = "low",
+        verbosity: Optional[str] = None,
+        background: bool = False,
+    ) -> Dict[str, Any]:
+        """Ollama variant: hosted tools become a local execute-and-resume loop.
+
+        Request history is a plain input-items array (the class docstring
+        explains why previous_response_id is unusable here). Each model turn
+        that emits function_call items gets them executed by
+        ``local_tools.execute_local_tool`` and their results appended as
+        ``function_call_output`` items, until a plain message arrives or the
+        round budget is spent. ``temperature`` stays unsent, as everywhere
+        else: reasoning models ignore it anyway.
+        """
+        started = time.monotonic()
+        items: List[Dict[str, Any]] = list(self.local_items)
+        items.append({"type": "message", "role": "user", "content": user_request})
+
+        all_output_items: List[Dict[str, Any]] = []
+        tool_calls: List[Dict[str, Any]] = []
+        round_trips: List[Dict[str, Any]] = []
+        last_request: Dict[str, Any] = {}
+        final_response: Optional[Dict[str, Any]] = None
+        error: Optional[Dict[str, Any]] = None
+
+        for round_index in range(self.max_tool_rounds + 1):
+            last_request = self._build_responses_request(
+                items,
+                use_tools=use_tools,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
+                max_output_tokens=max_tokens,
+                background=background,
+            )
+            turn_started = time.monotonic()
+            status_code, response, _stream_events = self._post_responses(last_request)
+            turn_elapsed = round(time.monotonic() - turn_started, 6)
+            self.api_turns.append(
+                {
+                    "request": json.loads(json.dumps(last_request, ensure_ascii=False)),
+                    "http_status": status_code,
+                    "response": response,
+                    "elapsed_seconds": turn_elapsed,
+                }
+            )
+            if (
+                not isinstance(response, dict)
+                or status_code >= 400
+                or response.get("error")
+            ):
+                error = (response.get("error") if isinstance(response, dict) else None) or {
+                    "type": "http_error",
+                    "message": (response.get("raw_text") if isinstance(response, dict) else None)
+                    or (json.dumps(response)[:500] if response is not None else "Empty response"),
+                }
+                break
+
+            all_output_items.extend(
+                item
+                for item in response.get("output") or []
+                if isinstance(item, dict)
+            )
+            calls = self._function_calls(response)
+            tool_calls.extend(calls)
+
+            if not calls:
+                final_response = response
+                break
+            if round_index == self.max_tool_rounds:
+                error = {
+                    "type": "max_tool_rounds",
+                    "message": (
+                        f"model kept calling tools through round "
+                        f"{self.max_tool_rounds + 1}; giving up"
+                    ),
+                }
+                final_response = response
+                break
+
+            # Execute every call of this round, then feed results back.
+            for call in calls:
+                output = execute_local_tool(
+                    str(call.get("name", "")), str(call.get("arguments") or "")
+                )
+                round_trips.append(
+                    {
+                        "call_id": call.get("call_id"),
+                        "name": call.get("name"),
+                        "arguments": call.get("arguments"),
+                        "output": output,
+                    }
+                )
+                items.append({k: call[k] for k in _FUNCTION_CALL_KEYS if k in call})
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call.get("call_id"),
+                        "output": output,
+                    }
+                )
+
+        elapsed = round(time.monotonic() - started, 6)
+        text = self._output_text(final_response or {})
+        success = (
+            final_response is not None
+            and error is None
+            and final_response.get("status") == "completed"
+            and bool(text)
+        )
+        if success:
+            # Extend the carry-over history with this turn's answer; failed
+            # turns leave self.local_items untouched.
+            self.local_items = items + [
+                {"type": "message", "role": "assistant", "content": text}
+            ]
+        self.conversation_history.extend(
+            [
+                {"role": "user", "content": user_request},
+                {"role": "assistant", "content": text},
+            ]
+        )
+        return {
+            "success": success,
+            "error": error,
+            "response": text,
+            "request": last_request,
+            "raw_response": final_response,
+            "output_items": all_output_items,
+            "tool_calls": tool_calls,
+            "tool_round_trips": round_trips,
+            "local_tool_mode": True,
+            "citations": [],
+            "usage": (final_response or {}).get("usage") or {},
+            "model": (final_response or {}).get("model") or self.model,
+            "requested_model": self.model,
+            "provider": self.provider,
+            "base_url": self.base_url,
+            "status": (final_response or {}).get("status"),
+            "elapsed_seconds": elapsed,
+            "temperature_omitted_for_reasoning_model": temperature is not None,
+        }
+
     def process_request(
         self,
         user_request: str,
@@ -247,6 +509,16 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
         ``temperature`` remains in the signature for legacy callers, but is not
         sent: GPT-5.6 reasoning requests use ``reasoning.effort`` instead.
         """
+        if self.provider == "ollama" and not dry_run:
+            return self._process_request_with_local_tools(
+                user_request,
+                use_tools=use_tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
+                background=background,
+            )
         request = self._build_responses_request(
             user_request,
             use_tools=use_tools,
@@ -368,6 +640,7 @@ code_interpreter 实际执行，不得口算或声称运行了代码。"""
         self.conversation_history = []
         self.previous_response_id = None
         self.api_turns = []
+        self.local_items = []
 
     def get_history(self) -> List[Dict[str, Any]]:
         return json.loads(json.dumps(self.conversation_history, ensure_ascii=False))

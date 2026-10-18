@@ -336,11 +336,11 @@ def main():
         description="GPT-5 原生工具 Agent —— 演示实验 1.3：网络搜索 + 代码解释器的原生 Deep Research 能力",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""示例：
-  python main.py                                    # 交互模式（默认）
+  python main.py                                    # 交互模式（默认，本地 Ollama）
   python main.py --mode single --request "东盟 10 国首都之间距离最近的两个首都是？"
-  python main.py --mode single --request "分析比特币近一月走势" --reasoning high --verbosity high
-  python main.py --mode single --request "..." --output result.json
-  python main.py --dry-run --request "..."          # 离线查看请求体（原生工具定义），无需 API Key
+  python main.py --backend ollama --mode single --request "分析比特币近一月走势" --output result.json
+  python main.py --backend openai --mode single --request "..." --reasoning high --verbosity high
+  python main.py --dry-run --request "..."          # 离线查看请求体（本地为 function 工具定义），无需联网
   python main.py --mode test --test basic           # 运行指定联网手动用例
 """,
     )
@@ -358,15 +358,22 @@ def main():
     )
     parser.add_argument(
         "--backend",
-        choices=["openai", "openrouter", "dashscope"],
-        default=Config.BACKEND,
-        help="Responses API backend; openai is the exact canonical path, dashscope is the eligible equivalent-provider path",
+        choices=["openai", "openrouter", "dashscope", "ollama"],
+        default="ollama",
+        help=(
+            "Responses API backend：openai 为精确正典路径，dashscope 为等价"
+            "提供商路径，ollama 为本地降级路径（托管工具→本地 function 工具，"
+            "默认）"
+        ),
     )
     parser.add_argument(
         "--model",
         type=str,
         default=None,
-        help=f"覆盖模型名称（默认取配置 {Config.MODEL_NAME}）",
+        help=(
+            "覆盖模型名称（ollama 默认读 OLLAMA_MODEL，openai 默认 "
+            "gpt-5.6-sol，dashscope 默认 qwen3.7-plus）"
+        ),
     )
     parser.add_argument(
         "--reasoning",
@@ -404,6 +411,12 @@ def main():
 
     args = parser.parse_args()
 
+    if args.backend == "ollama" and (args.reasoning != "low" or args.verbosity):
+        print(
+            "ℹ️  ollama 后端忽略 --reasoning / --verbosity："
+            "本地模型没有 reasoning.effort / text.verbosity 旋钮"
+        )
+
     # dry-run：离线路径，跳过 API Key 校验
     if args.dry_run:
         if not args.request:
@@ -415,9 +428,13 @@ def main():
     # 其余模式需要有效配置
     if not Config.validate(args.backend):
         print("❌ 配置错误！")
-        print("请配置所选 backend 对应的 OPENAI_API_KEY / OPENROUTER_API_KEY / DASHSCOPE_API_KEY")
+        print(
+            "请配置所选 backend 对应的 OPENAI_API_KEY / OPENROUTER_API_KEY / "
+            "DASHSCOPE_API_KEY（ollama 只需 OLLAMA_BASE_URL 可达，占位 key 即可）"
+        )
         print("\n示例 .env：")
-        print("DASHSCOPE_API_KEY=your-dashscope-api-key")
+        print("OLLAMA_BASE_URL=http://localhost:8000/v1")
+        print("OLLAMA_MODEL=qwen3.5-4b:q4")
         sys.exit(1)
 
     if args.mode == "interactive":

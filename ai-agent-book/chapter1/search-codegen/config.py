@@ -35,6 +35,15 @@ class Config:
         "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     )
     DASHSCOPE_MODEL = os.getenv("DASHSCOPE_MODEL", "qwen3.7-plus")
+
+    # Local Ollama speaks the Responses protocol on its OpenAI-compatible
+    # endpoint (Ollama >= 0.12; verified on 0.35.0). The placeholder key only
+    # satisfies the non-empty check — a local server does not authenticate.
+    # Defaults match chapter1/context/.env so one .env serves both experiments.
+    OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "ollama")
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:8000/v1")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5-4b:q4")
+
     BACKEND = os.getenv("BACKEND", "openai")
     MODEL_NAME = os.getenv("MODEL_NAME", "gpt-5.6-sol")
     DEFAULT_TEMPERATURE = 0.3  # legacy CLI compatibility; intentionally omitted
@@ -62,7 +71,13 @@ class Config:
             return cls.OPENROUTER_API_KEY, cls.OPENROUTER_BASE_URL, routed
         if backend == "dashscope":
             return cls.DASHSCOPE_API_KEY, cls.DASHSCOPE_BASE_URL, model or cls.DASHSCOPE_MODEL
-        raise ValueError("backend must be openai, openrouter, or dashscope")
+        if backend == "ollama":
+            return (
+                cls.OLLAMA_API_KEY,
+                cls.OLLAMA_BASE_URL,
+                model or cls.OLLAMA_MODEL,
+            )
+        raise ValueError("backend must be openai, openrouter, dashscope, or ollama")
 
     @classmethod
     def validate(cls, backend: Optional[str] = None) -> bool:
