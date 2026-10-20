@@ -27,12 +27,12 @@ __pycache__/
 *.log
 research_report.json
 
-# ---- 上游作者的实验证据文件（~445MB，学习仓库无需复核）----
-# receipts.json、视频源缓存 .mov 等运行产物。
-# 注意 ** 跨层级：实际路径形如 chapter5/video-edit/validation/runs/。
+# ---- 实验运行产物（所有层级的 runs/，2026-10-20 起不再入库）----
+# 覆盖 chapterN/*/runs/、validation/runs/ 等所有位置；磁盘文件保留，
+# 仅从 git 索引移除，历史提交不改写。
 # results/ 类文件无需在此声明：上游 ai-agent-book/.gitignore 已做过精细
 # 筛选（通用忽略 results/，仅强制保留 chapter7 两组评测证据，约 35MB）。
-**/validation/runs/
+**/runs/
 **/validation/source_cache/
 
 # ---- 编辑器 / OS 垃圾 ----

@@ -1,3 +1,0 @@
-Task inputs for delivery token BRAVO-528
-- Required artifacts: inputs.txt, analysis.txt, checks.txt, delivery.txt
-- Requirement: every artifact must contain exactly the token BRAVO-528

@@ -1,3 +1,0 @@
-Quality artifact for delivery.
-Token: ECHO-851
-This file documents the quality checks for the multi-step delivery.

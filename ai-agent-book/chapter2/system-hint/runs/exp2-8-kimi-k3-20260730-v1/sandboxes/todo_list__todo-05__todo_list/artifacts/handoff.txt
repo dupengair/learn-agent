@@ -1,3 +1,0 @@
-Handoff artifact for delivery.
-Token: ECHO-851
-This file documents the handoff step of the multi-step delivery.

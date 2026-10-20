@@ -1,3 +1,0 @@
-Work artifact for delivery.
-Token: ECHO-851
-This file documents the work performed for the multi-step delivery.

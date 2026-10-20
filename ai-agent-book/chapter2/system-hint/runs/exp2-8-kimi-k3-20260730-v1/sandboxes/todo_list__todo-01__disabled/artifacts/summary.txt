@@ -1,4 +1,0 @@
-Summary
-Created artifacts: inventory.txt, decision.txt, audit.txt, summary.txt
-Requirement: every artifact contains the token ALPHA-417 exactly as specified.
-Verification status: complete
