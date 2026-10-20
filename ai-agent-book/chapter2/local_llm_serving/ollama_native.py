@@ -13,16 +13,20 @@ from tools import ToolRegistry
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Default local Ollama endpoint and model for this project
+DEFAULT_OLLAMA_MODEL = "qwen3.5-4b:q4"
+OLLAMA_BASE_URL = "http://localhost:8000"
+
 
 class OllamaNativeAgent:
     """Agent using Ollama's native tool calling support"""
-    
-    def __init__(self, model: str = "qwen3:0.6b"):
+
+    def __init__(self, model: str = DEFAULT_OLLAMA_MODEL):
         """
         Initialize with a model that supports tool calling
         """
         self.model = model
-        self.client = ollama.Client()
+        self.client = ollama.Client(host=OLLAMA_BASE_URL)
         self.tool_registry = ToolRegistry()
         self.conversation_history = []
         self._think_disabled: set[str] = set()
@@ -399,8 +403,8 @@ class OllamaNativeAgent:
 class OllamaOpenAICompatible:
     """Use Ollama through its OpenAI-compatible endpoint"""
     
-    def __init__(self, model: str = "qwen3:0.6b", 
-                 base_url: str = "http://localhost:11434/v1"):
+    def __init__(self, model: str = DEFAULT_OLLAMA_MODEL,
+                 base_url: str = f"{OLLAMA_BASE_URL}/v1"):
         """
         Initialize using Ollama's OpenAI-compatible API
         
@@ -539,7 +543,7 @@ def test_native_tools():
     
     # Test with default model
     models_to_test = [
-        "qwen3:0.6b",  # Default model for this project
+        DEFAULT_OLLAMA_MODEL,  # Default model for this project
     ]
     
     for model_name in models_to_test:
@@ -548,7 +552,7 @@ def test_native_tools():
         
         try:
             # Check if model is available
-            client = ollama.Client()
+            client = ollama.Client(host=OLLAMA_BASE_URL)
             # ollama >= 0.4 returns a ListResponse whose entries are Model objects
             # (field ``model``); older versions returned plain dicts (key ``name``).
             available_models = [
@@ -580,8 +584,8 @@ def test_native_tools():
     
     print("\n" + "="*60)
     print("💡 Note:")
-    print("This project uses qwen3:0.6b as the default model.")
-    print("Install with: ollama pull qwen3:0.6b")
+    print(f"This project uses {DEFAULT_OLLAMA_MODEL} as the default model.")
+    print(f"Install with: ollama pull {DEFAULT_OLLAMA_MODEL}")
     print("="*60)
 
 
@@ -605,24 +609,24 @@ def demo():
         print("\nUsing native Ollama API...")
         # Check for best available model
         try:
-            client = ollama.Client()
+            client = ollama.Client(host=OLLAMA_BASE_URL)
             # ollama >= 0.4 returns a ListResponse whose entries are Model objects
             # (field ``model``); older versions returned plain dicts (key ``name``).
             models = [
                 getattr(m, "model", None) or m.get("name", "")
                 for m in client.list()["models"]
             ]
-            
-            # Use qwen3:0.6b as the default model
-            model = "qwen3:0.6b"
-            
+
+            # Use the project default model
+            model = DEFAULT_OLLAMA_MODEL
+
             if model in models:
                 print(f"Using recommended model: {model}")
             else:
                 print(f"Recommended model {model} not found")
-                print("Install with: ollama pull qwen3:0.6b")
+                print(f"Install with: ollama pull {DEFAULT_OLLAMA_MODEL}")
                 # Fall back to first available model
-                model = models[0] if models else "qwen3:0.6b"
+                model = models[0] if models else DEFAULT_OLLAMA_MODEL
                 print(f"Using fallback model: {model}")
                 
             agent = OllamaNativeAgent(model=model)

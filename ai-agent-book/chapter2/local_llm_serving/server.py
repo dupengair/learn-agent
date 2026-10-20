@@ -28,10 +28,18 @@ class VLLMServer:
         """Build vLLM server command with arguments"""
         cmd = [
             sys.executable, "-m", "vllm.entrypoints.openai.api_server",
-            "--model", self.config["model"],
             "--port", str(self.config["port"]),
             "--host", self.config["host"],
         ]
+
+        # Local weights (MODEL_PATH) take precedence when configured; the
+        # API-facing model name stays MODEL_NAME via --served-model-name
+        model_path = self.config.get("model_path")
+        if model_path:
+            cmd.extend(["--model", model_path])
+            cmd.extend(["--served-model-name", self.config["model"]])
+        else:
+            cmd.extend(["--model", self.config["model"]])
         
         # Add tool-specific arguments
         if self.config.get("enable_auto_tool_choice"):

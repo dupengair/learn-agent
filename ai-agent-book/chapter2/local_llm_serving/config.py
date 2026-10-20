@@ -17,6 +17,7 @@ VLLM_HOST = os.getenv("VLLM_HOST", "localhost")
 # vLLM Server Configuration
 VLLM_SERVER_CONFIG = {
     "model": MODEL_NAME,
+    "model_path": MODEL_PATH,  # local weights; used as --model when set
     "port": VLLM_PORT,
     "host": VLLM_HOST,
     "enable_auto_tool_choice": True,

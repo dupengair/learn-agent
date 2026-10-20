@@ -36,7 +36,7 @@ def run_reasoning_stream(field):
     with patch("benchmark.time.perf_counter", side_effect=[0.0, 0.25, 1.0]):
         return stream_once(
             make_client(chunks),
-            model="qwen3:0.6b",
+            model="qwen3.5-4b:q4",
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=8,
             temperature=0.0,

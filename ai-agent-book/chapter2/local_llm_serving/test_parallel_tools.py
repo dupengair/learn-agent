@@ -11,7 +11,7 @@ Covers:
      Ollama's OpenAI-compatible endpoint stands in for the vLLM server)
 
 Run from this directory:  python3 test_parallel_tools.py
-Requires: ollama serve + ollama pull qwen2.5:7b-instruct-q8_0
+Requires: ollama serve + ollama pull qwen3.5-4b:q4
 """
 import json
 import logging
@@ -25,9 +25,9 @@ logging.basicConfig(level=logging.WARNING)
 
 SLEEP = 2
 QUERY = "What time is it in Vancouver and what's the current weather in Vancouver?"
-# qwen3:0.6b is the project default but flaky at native tool calling;
-# qwen2.5:7b-instruct-q8_0 (also pulled locally) calls tools reliably.
-REAL_MODEL = "qwen2.5:7b-instruct-q8_0"
+# qwen3:0.6b is the upstream project default but is not installed locally;
+# qwen3.5-4b:q4 (available locally) calls tools reliably.
+REAL_MODEL = "qwen3.5-4b:q4"
 MAX_ATTEMPTS = 4  # small models occasionally skip tool calling; retry
 
 
@@ -90,7 +90,7 @@ def _tool_fragment(index, *, call_id=None, name=None, arguments=None):
 
 def test_vllm_stream_parallel():
     print("\n== VLLMToolAgent.chat_stream (fake stream with 2 tool calls) ==")
-    agent = VLLMToolAgent(api_base="http://localhost:11434/v1", api_key="ollama")
+    agent = VLLMToolAgent(api_base="http://localhost:8000/v1", api_key="ollama")
     _register_sleep_tools(agent.tool_registry)
 
     state = {"n": 0}
@@ -187,7 +187,7 @@ def test_openai_compat_real_model():
 
 def test_vllm_agent_real_model():
     print(f"\n== VLLMToolAgent.chat (real {REAL_MODEL} via OpenAI endpoint) ==")
-    agent = VLLMToolAgent(api_base="http://localhost:11434/v1", api_key="ollama")
+    agent = VLLMToolAgent(api_base="http://localhost:8000/v1", api_key="ollama")
 
     # Ollama's OpenAI endpoint stands in for the vLLM server. Keep the native
     # tools payload so both chat paths receive structured tool_calls.

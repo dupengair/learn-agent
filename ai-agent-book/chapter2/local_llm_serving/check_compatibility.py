@@ -95,7 +95,7 @@ def provide_recommendations(cuda_available, system):
         print("   Run OllamaSetup.exe\n")
 
         print("2️⃣  Install a model:")
-        print("   ollama pull qwen3:0.6b  # Default model for this project\n")
+        print("   ollama pull qwen3.5-4b:q4  # Default model for this project\n")
 
         print("3️⃣  Run the main script:")
         print("   python main.py")
@@ -117,7 +117,7 @@ def provide_recommendations(cuda_available, system):
         print("   ollama serve  # Run in separate terminal\n")
         
         print("2️⃣  Install a model with tool support:")
-        print("   ollama pull qwen3:0.6b  # Default model for this project\n")
+        print("   ollama pull qwen3.5-4b:q4  # Default model for this project\n")
         
         print("3️⃣  Run the main script:")
         print("   python main.py")
@@ -132,7 +132,7 @@ def provide_recommendations(cuda_available, system):
         print("   systemctl start ollama  # Or: ollama serve\n")
         
         print("2️⃣  Install a model:")
-        print("   ollama pull qwen3:0.6b  # Default model for this project\n")
+        print("   ollama pull qwen3.5-4b:q4  # Default model for this project\n")
         
         print("3️⃣  Run the main script:")
         print("   python main.py")

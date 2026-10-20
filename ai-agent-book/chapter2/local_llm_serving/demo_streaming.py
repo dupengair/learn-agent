@@ -58,34 +58,34 @@ def demo_vllm_streaming():
 
 def demo_ollama_streaming():
     """Demo streaming with Ollama backend"""
-    from ollama_native import OllamaNativeAgent
+    from ollama_native import OllamaNativeAgent, DEFAULT_OLLAMA_MODEL, OLLAMA_BASE_URL
     import ollama
-    
+
     print("="*60)
     print("🦙 Ollama Streaming Demo")
     print("="*60)
-    
+
     try:
         # Check available models
-        client = ollama.Client()
+        client = ollama.Client(host=OLLAMA_BASE_URL)
         # ollama >= 0.4 returns a ListResponse whose entries are Model objects
         # (field ``model``); older versions returned plain dicts (key ``name``).
         models = [
             getattr(m, "model", None) or m.get("name", "")
             for m in client.list()["models"]
         ]
-        
-        # Use qwen3:0.6b as the default model
-        model = "qwen3:0.6b"
-        
+
+        # Use the project default model
+        model = DEFAULT_OLLAMA_MODEL
+
         if model not in models:
             print(f"⚠️ Recommended model {model} not found")
-            print("Install with: ollama pull qwen3:0.6b")
+            print(f"Install with: ollama pull {DEFAULT_OLLAMA_MODEL}")
             if models:
                 model = models[0]
                 print(f"Using fallback model: {model}")
             else:
-                print("❌ No Ollama models found. Install with: ollama pull qwen3:0.6b")
+                print(f"❌ No Ollama models found. Install with: ollama pull {DEFAULT_OLLAMA_MODEL}")
                 return
         
         print(f"Using model: {model}")

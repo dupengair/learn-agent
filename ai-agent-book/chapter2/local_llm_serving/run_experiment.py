@@ -349,9 +349,12 @@ def credential_scan(path: Path) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://localhost:11434")
-    parser.add_argument("--model", default="qwen3:0.6b")
-    parser.add_argument("--tokenizer", default="Qwen/Qwen3-0.6B")
+    parser.add_argument("--base-url", default="http://localhost:8000")
+    parser.add_argument("--model", default="qwen3.5-4b:q4")
+    parser.add_argument("--tokenizer",
+                        default="/home/dupengair/shared/LLM/Fine-tuning/model/Qwen3-0.6B",
+                        help="Tokenizer for rendering the raw chat template; a local "
+                             "path avoids any network access (HF hub cache is incomplete)")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 

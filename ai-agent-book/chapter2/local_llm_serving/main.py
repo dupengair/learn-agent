@@ -95,11 +95,12 @@ class ToolCallingAgent:
             
             # Initialize vLLM agent
             from agent import VLLMToolAgent
-            from config import OPENAI_API_BASE, OPENAI_API_KEY
-            
+            from config import OPENAI_API_BASE, OPENAI_API_KEY, MODEL_NAME
+
             self.agent = VLLMToolAgent(
                 api_base=OPENAI_API_BASE,
-                api_key=OPENAI_API_KEY
+                api_key=OPENAI_API_KEY,
+                model=MODEL_NAME
             )
             logger.info("✅ vLLM agent initialized")
             
@@ -113,29 +114,29 @@ class ToolCallingAgent:
         """Initialize Ollama backend"""
         try:
             import ollama
-            from ollama_native import OllamaNativeAgent
-            
+            from ollama_native import OllamaNativeAgent, DEFAULT_OLLAMA_MODEL, OLLAMA_BASE_URL
+
             # Check if Ollama is running
-            client = ollama.Client()
+            client = ollama.Client(host=OLLAMA_BASE_URL)
             try:
                 models_response = client.list()
                 available_models = []
                 if hasattr(models_response, 'models'):
                     available_models = [m.model for m in models_response.models]
-                
+
                 if not available_models:
                     logger.error("No Ollama models installed")
-                    logger.info("Install a model with: ollama pull qwen3:0.6b")
+                    logger.info(f"Install a model with: ollama pull {DEFAULT_OLLAMA_MODEL}")
                     sys.exit(1)
-                
-                # Use qwen3:0.6b as the default model
-                model = "qwen3:0.6b"
-                
-                # Check if qwen3:0.6b is available
+
+                # Use the project default model
+                model = DEFAULT_OLLAMA_MODEL
+
+                # Check if the default model is available
                 if model not in available_models:
                     logger.warning(f"Recommended model {model} not found in available models")
-                    logger.info("Install with: ollama pull qwen3:0.6b")
-                    # Fall back to first available model if qwen3:0.6b is not installed
+                    logger.info(f"Install with: ollama pull {DEFAULT_OLLAMA_MODEL}")
+                    # Fall back to first available model if the default is not installed
                     model = available_models[0]
                     logger.info(f"Using fallback model: {model}")
                 

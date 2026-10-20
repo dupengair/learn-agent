@@ -18,7 +18,7 @@ KV Cache 的直觉：
 示例：
     # 先启动服务端（二选一）
     python server.py                    # vLLM（需要 NVIDIA GPU）
-    ollama serve && ollama pull qwen3:0.6b   # Ollama（Mac / 无 GPU）
+    ollama serve && ollama pull qwen3.5-4b:q4   # Ollama（Mac / 无 GPU）
 
     # 跑全部场景并保存结果
     python benchmark.py --scenario all --output results.json
@@ -48,7 +48,7 @@ logger = logging.getLogger("benchmark")
 # 各后端的默认 OpenAI 兼容地址
 BACKEND_DEFAULTS = {
     "vllm": {"base_url": "http://localhost:8000/v1", "model": "Qwen3-0.6B"},
-    "ollama": {"base_url": "http://localhost:11434/v1", "model": "qwen3:0.6b"},
+    "ollama": {"base_url": "http://localhost:8000/v1", "model": "qwen3.5-4b:q4"},
 }
 
 # 一段确定性的填充文本，用于把共享前缀撑长，让 KV Cache 的效果更明显
@@ -368,7 +368,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--model",
         type=str,
         default=None,
-        help="模型名，覆盖后端默认值（vLLM 默认 Qwen3-0.6B，Ollama 默认 qwen3:0.6b）",
+        help="模型名，覆盖后端默认值（vLLM 默认 Qwen3-0.6B，Ollama 默认 qwen3.5-4b:q4）",
     )
     parser.add_argument(
         "--api-key",

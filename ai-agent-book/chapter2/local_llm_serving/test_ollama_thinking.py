@@ -45,7 +45,7 @@ class FakeToolCallingClient:
 
 
 def test_streaming_yields_ollama_thinking_field():
-    agent = OllamaNativeAgent(model="qwen3:0.6b")
+    agent = OllamaNativeAgent(model="qwen3.5-4b:q4")
     fake_client = FakeOllamaClient()
     agent.client = fake_client
 
@@ -66,7 +66,7 @@ def test_streaming_yields_ollama_thinking_field():
 
 
 def test_streaming_history_preserves_assistant_turn_before_tool_results():
-    agent = OllamaNativeAgent(model="qwen3:0.6b")
+    agent = OllamaNativeAgent(model="qwen3.5-4b:q4")
     agent.client = FakeToolCallingClient(stream=True)
     agent._execute_tool_calls = lambda _calls: ["first result", "second result"]
 
@@ -100,7 +100,7 @@ def test_streaming_history_preserves_assistant_turn_before_tool_results():
 
 
 def test_non_streaming_history_preserves_thinking_and_tool_names():
-    agent = OllamaNativeAgent(model="qwen3:0.6b")
+    agent = OllamaNativeAgent(model="qwen3.5-4b:q4")
     agent.client = FakeToolCallingClient(stream=False)
     agent._execute_tool_calls = lambda _calls: ["first result", "second result"]
 
