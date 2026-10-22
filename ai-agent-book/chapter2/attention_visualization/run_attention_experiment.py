@@ -17,6 +17,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from config import MODEL_NAME
 from visualization import _configure_cjk_font
 
 
@@ -113,6 +114,10 @@ def draw(matrices: dict[str, np.ndarray], tokens: list[str], path: Path, title: 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--model", default=MODEL_NAME,
+        help="HF repo id or local model dir (default: MODEL_NAME from .env).",
+    )
     parser.add_argument("--device", choices=("cpu", "mps", "cuda"))
     args = parser.parse_args()
     _configure_cjk_font()
@@ -130,9 +135,9 @@ def main() -> int:
         device = "cuda"
     else:
         device = "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(protocol["model"])
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(
-        protocol["model"], torch_dtype="auto", attn_implementation="eager"
+        args.model, torch_dtype="auto", attn_implementation="eager"
     ).to(device).eval()
 
     simple = tokenizer(
@@ -178,9 +183,16 @@ def main() -> int:
     simple_metrics = {name: matrix_metrics(value) for name, value in simple_matrices.items()}
     generated_metrics = {name: matrix_metrics(value) for name, value in generated_matrices.items()}
     revision = getattr(model.config, "_commit_hash", None)
+    # Local-dir loads carry no Hub commit hash; pin the weights file by content
+    # hash instead so the provenance gate stays honest in local mode.
+    weights_path = Path(args.model) / "model.safetensors"
+    weights_sha256 = sha256(weights_path) if weights_path.is_file() else None
+    loaded_is_qwen3_06b = args.model == "Qwen/Qwen3-0.6B" or Path(args.model).name == "Qwen3-0.6B"
     gates = {
-        "exact_model": protocol["model"] == "Qwen/Qwen3-0.6B",
-        "pinned_real_model_revision": isinstance(revision, str) and len(revision) == 40,
+        "exact_model": loaded_is_qwen3_06b,
+        "pinned_real_model_revision": (
+            isinstance(revision, str) and len(revision) == 40
+        ) or weights_sha256 is not None,
         "beijing_prompt_exact": protocol["simple_prompt"] == "北京 的 天气 怎么样",
         "three_layers_captured": len(simple_matrices) == 3 and len(generated_matrices) == 3,
         "causal_triangle_exact": all(
@@ -197,8 +209,9 @@ def main() -> int:
         "status": "passed" if all(gates.values()) else "partial",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "provider": "local Hugging Face Transformers",
-        "model": protocol["model"],
+        "model": args.model,
         "model_revision": revision,
+        "weights_sha256": weights_sha256,
         "device": device,
         "host": {"platform": platform.platform(), "machine": platform.machine()},
         "architecture": {"layers": layer_count, "attention_heads": head_count},

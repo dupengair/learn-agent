@@ -18,6 +18,8 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from config import MODEL_NAME
+
 
 ROOT = Path(__file__).resolve().parent
 PROTOCOL = ROOT / "status_bar_protocol.json"
@@ -323,7 +325,10 @@ def draw_heatmaps(records: dict[str, Any], path: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
+    parser.add_argument(
+        "--model", default=MODEL_NAME,
+        help="HF repo id or local model dir (default: MODEL_NAME from .env).",
+    )
     parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default=None)
     args = parser.parse_args()
 

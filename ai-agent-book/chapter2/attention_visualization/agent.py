@@ -21,6 +21,8 @@ from transformers import (
 import warnings
 warnings.filterwarnings("ignore")
 
+from config import MODEL_NAME
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -157,7 +159,7 @@ class AttentionVisualizationAgent:
     
     def __init__(
         self,
-        model_name: str = "Qwen/Qwen3-0.6B",
+        model_name: str = MODEL_NAME,
         device: Optional[str] = None,
         attention_layer_index: int = -1,
         verbose: bool = True

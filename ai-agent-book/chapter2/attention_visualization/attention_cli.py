@@ -41,6 +41,8 @@ import sys
 
 import numpy as np
 
+from config import MODEL_NAME
+
 
 DEFAULT_PROMPT = "北京 的 天气 怎么样"
 
@@ -82,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     model_group = parser.add_argument_group("model")
     model_group.add_argument(
-        "-m", "--model", default="Qwen/Qwen3-0.6B",
+        "-m", "--model", default=MODEL_NAME,
         help="Hugging Face model name or local path (default: %(default)s).",
     )
     model_group.add_argument(
