@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `ai-agent-book/` 是上游仓库的克隆，默认**不要改动**其中的书稿正文（`book/`）；为学习目的运行、调试、修改实验代码（`chapterN/`）是可以的。
 - **【硬性规则】Python 环境规范**：一律使用 conda 环境 `ai-gpu`（`/home/dupengair/shared/conda/anaconda3/envs/ai-gpu`，Python 3.12）。**禁止使用 uv**（`uv run`/`uv sync` 会在仓库内创建 `.venv`，被 VSCode Python 扩展自动选中并注入终端，导致解释器错乱），也不要手动创建任何 `.venv`。缺依赖直接 `pip install <包名>` 装进 `ai-gpu`。
 - 帮用户做实验、读章节时，优先参考各章 `README.md`（有推荐的 Starter 实验和阅读顺序）和 `EXPERIMENT_LEDGER.md`（记录真实运行条件与结果，避免把书中预期现象当成必然结论）。
+- **【优先】代码分析用 CodeGraph**：`ai-agent-book/` 已完成 codegraph 初始化（`ai-agent-book/.codegraph/` 已存在）。分析、定位、理解其中代码时**优先**用 `codegraph_explore`（MCP 工具，需传 `projectPath=/home/dupengair/shared/LLM/ai-agent/ai-agent-book`）或 shell 的 `codegraph explore "<符号名或问题>"`——一次调用即返回相关符号的源码 + 调用路径，优于 grep/逐文件 Read；索引未覆盖的内容（如 `docs/`、仓库根 `tests/`）或 codegraph 查不到时，再退回 Grep/Read。
 - **【硬性规则】文档沉淀规范**：凡经 Claude 在本项目产生的文档（笔记、实验总结、原理解释、分析报告等），必须保存到 `docs/<目录名>/` 下，并按 `<数字序号>_<章节序号>_<内容>.md` 命名：
   - `<目录名>` — 来源项目目录名（如 `ai-agent-book`）；
   - `<数字序号>` — 两位数字序号（`01`、`02`…），同一 `<目录名>` 下按产生顺序递增；
