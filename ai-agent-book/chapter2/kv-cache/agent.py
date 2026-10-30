@@ -44,11 +44,23 @@ def _reasoning_safe_temperature(model, requested=1.0):
     return 1 if _is_reasoning_model(model) else requested
 
 
+def _is_local_thinking_model(model) -> bool:
+    """True for locally served thinking models (Ollama qwen3*).
+
+    Their thinking tokens also come out of the completion budget, but their
+    endpoints accept any temperature, so unlike the Kimi family above they
+    only need the max_tokens headroom. It is harmless when thinking is off
+    (max_tokens is just a ceiling), and required when --think turns it on."""
+    return "qwen3" in str(model or "").lower()
+
+
 def _reasoning_safe_max_tokens(model, requested=2000):
     """Reasoning models spend completion budget on hidden reasoning tokens
     before emitting content / tool calls. Give them enough headroom so a
     tool call is not truncated away; leave non-reasoning models unchanged."""
-    return max(requested, 4096) if _is_reasoning_model(model) else requested
+    if _is_reasoning_model(model) or _is_local_thinking_model(model):
+        return max(requested, 4096)
+    return requested
 
 
 # Configure logging
@@ -356,30 +368,49 @@ class KVCacheAgent:
     
     def __init__(self, api_key: str, mode: KVCacheMode = KVCacheMode.CORRECT,
                  model: str = "kimi-k2.6", root_dir: str = ".",
-                 verbose: bool = True):
+                 verbose: bool = True, provider: str = None,
+                 think: bool = False):
         """
         Initialize the agent
-        
+
         Args:
-            api_key: API key for Moonshot/Kimi
+            api_key: API key for Moonshot/Kimi (ignored by local ollama)
             mode: KV cache optimization mode
             model: Model to use
             root_dir: Root directory for file operations
             verbose: If True, log detailed information
+            provider: Explicit provider name (e.g. "ollama"). When omitted,
+                the key's owner is inferred as before (OpenRouter sk-or-… key
+                → openrouter, anything else → kimi), so legacy callers that
+                only pass a Kimi/OpenRouter key are unchanged.
+            think: Keep the local qwen3* thinking enabled. Off by default:
+                thinking tokens are shared noise across all modes and Ollama
+                accepts per-request reasoning_effort="none" to disable them.
         """
         # 默认走 Moonshot/Kimi 官方端点；若传入的是 OpenRouter key（sk-or-…），
         # 则自动回退到 OpenRouter，并把 kimi-* 模型名映射为 moonshotai/kimi-k2。
         # 端点、key 与模型名映射统一由 agentbook 的 provider 注册表维护；
         # “这把 key 属于谁”只有调用方知道，因此在此处判定后再交给注册表解析。
-        from agentbook.providers import is_openrouter_key, resolve_backend
+        # 兜底：直接在实验目录运行（python main.py）时仓库根不在 sys.path。
+        try:
+            from agentbook.providers import is_openrouter_key, resolve_backend
+        except ImportError:  # pragma: no cover - exercised only without the package
+            import sys as _sys
+            _sys.path.insert(
+                0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            )
+            from agentbook.providers import is_openrouter_key, resolve_backend
 
-        provider = "openrouter" if is_openrouter_key(api_key) else "kimi"
+        if provider is None:
+            provider = "openrouter" if is_openrouter_key(api_key) else "kimi"
         backend = resolve_backend(provider, model=model, api_key=api_key)
         self.client = OpenAI(
             api_key=backend.api_key,
             base_url=backend.base_url
         )
         self.model = backend.model
+        self.provider = backend.provider
+        self.think = think
         self.mode = mode
         self.verbose = verbose
         self.tools = LocalFileTools(root_dir)
@@ -467,7 +498,8 @@ class KVCacheAgent:
             }
         ]
         
-        logger.info(f"Agent initialized with mode: {mode.value}, model: {model}")
+        logger.info(f"Agent initialized with mode: {mode.value}, "
+                    f"model: {self.model}, provider: {self.provider}")
     
     def _get_system_prompt(self) -> str:
         """Get system prompt based on mode"""
@@ -667,6 +699,13 @@ Always think step by step and use tools to gather information. When you have eno
                 "temperature": _reasoning_safe_temperature(self.model, 0.7),
                 "max_tokens": _reasoning_safe_max_tokens(self.model, 2000)
             }
+
+            # 本地 qwen3* 在 Ollama 上默认思考，思考 token 计入 completion 预算
+            # 且其耗时不区分模式地混入每次 TTFT。除非显式 --think，对 ollama
+            # 按请求关闭思考（Ollama /v1 支持 reasoning_effort），让延迟对比
+            # 只反映 prefill/decode 本身。联网 provider 不发送该参数。
+            if self.provider == "ollama" and not self.think:
+                request_data["reasoning_effort"] = "none"
             
             # Add tools for all modes (TEXT_FORMAT still needs tools to work)
             # TEXT_FORMAT only affects how conversation history is formatted, not tool availability
@@ -786,10 +825,13 @@ Always think step by step and use tools to gather information. When you have eno
                             print(f"    ✗ {function_name}: {result.get('error', 'Unknown error')}")
                         
                         # Add tool result as proper tool message (including errors)
+                        # ensure_ascii=False：中文经 \uXXXX 转义会膨胀约 6 倍，把本就有限的
+                        # 服务端上下文（Ollama 默认 16k，超限会从头丢消息，qwen3.5 模板会因
+                        # 找不到 user 消息直接 500）过早挤爆；本地中文文件读取场景必须关闭。
                         tool_message = {
                             "role": "tool",
                             "tool_call_id": tool_call.id,
-                            "content": json.dumps(result)
+                            "content": json.dumps(result, ensure_ascii=False)
                         }
                         # Always append to messages for current iteration
                         messages.append(tool_message)
@@ -832,15 +874,19 @@ Always think step by step and use tools to gather information. When you have eno
 
 
 def compare_implementations(api_key: str, task: str, root_dir: str = ".",
-                            model: str = "kimi-k2.6") -> Dict[str, Any]:
+                            model: str = "kimi-k2.6", provider: str = None,
+                            think: bool = False) -> Dict[str, Any]:
     """
     Compare different KV cache implementations
 
     Args:
-        api_key: API key for Kimi
+        api_key: API key for Kimi (ignored by local ollama)
         task: Task to execute
         root_dir: Root directory for file operations
         model: Model to use for all modes
+        provider: Explicit provider name; None keeps the legacy key-based
+            inference (see KVCacheAgent)
+        think: Keep local qwen3* thinking enabled (default off)
 
     Returns:
         Comparison results
@@ -852,7 +898,9 @@ def compare_implementations(api_key: str, task: str, root_dir: str = ".",
         logger.info(f"Testing mode: {mode.value}")
         logger.info(f"{'='*60}")
 
-        agent = KVCacheAgent(api_key=api_key, mode=mode, model=model, root_dir=root_dir, verbose=True)
+        agent = KVCacheAgent(api_key=api_key, mode=mode, model=model,
+                             root_dir=root_dir, verbose=True,
+                             provider=provider, think=think)
         result = agent.execute_task(task)
         
         results[mode.value] = {

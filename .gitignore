@@ -35,6 +35,9 @@ research_report.json
 **/runs/
 **/validation/source_cache/
 
+# ---- codegraph 本地索引（ai-agent-book 与仓库根各自生成，不入库）----
+.codegraph/
+
 # ---- 编辑器 / OS 垃圾 ----
 .DS_Store
 Thumbs.db

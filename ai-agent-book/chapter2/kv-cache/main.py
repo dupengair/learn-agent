@@ -21,6 +21,17 @@ except ImportError:
 
 from agent import KVCacheAgent, KVCacheMode, AgentMetrics, compare_implementations
 
+# Provider 表来自共享的 agentbook 包。直接在实验目录运行（python main.py）时
+# 仓库根不在 sys.path，兜底把它加回来（与 chapter1/context/config.py 同一模式）。
+try:
+    from agentbook.providers import SUPPORTED_PROVIDERS
+except ImportError:  # pragma: no cover - exercised only without the package
+    import sys as _sys
+    _sys.path.insert(
+        0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    )
+    from agentbook.providers import SUPPORTED_PROVIDERS
+
 # Default model (Moonshot / Kimi). The whole current Kimi family (k2.5/k2.6/
 # k2.7/k3) reports cached_tokens for automatic prefix caching AND reasons, so it
 # only accepts temperature=1 (agent.py handles that automatically). kimi-k2.6 has
@@ -46,6 +57,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Metrics helpers (shared by live comparison and offline report)
 # ---------------------------------------------------------------------------
+
+def _run_tag(provider: str, model: str) -> str:
+    """Provider+model tag for auto-named result files, e.g. ollama_qwen3_5_4b_q4.
+
+    Matches the style of the archived kimi runs (kimi_k2_6)."""
+    model_tag = str(model or "").replace(".", "_").replace("-", "_").replace(":", "_")
+    return f"{provider or 'kimi'}_{model_tag or 'default'}"
+
 
 def _coerce_metrics(metrics: Any) -> Dict[str, Any]:
     """Normalize a stored metrics value into a plain dict.
@@ -195,17 +214,20 @@ Start with chapter1 projects, then move to chapter2. Be thorough in your analysi
 
 
 def run_single_mode(api_key: str, mode: str, task: str = None, root_dir: str = DEFAULT_ROOT_DIR,
-                    model: str = DEFAULT_MODEL, output: str = None):
+                    model: str = DEFAULT_MODEL, output: str = None,
+                    provider: str = None, think: bool = False):
     """
     Run agent in a single mode
 
     Args:
-        api_key: API key for Kimi
+        api_key: API key for Kimi (ignored by local ollama)
         mode: KV cache mode to use
         task: Custom task (optional)
         root_dir: Root directory for file operations (default: "../.." = repository root)
         model: Model to use
         output: Output path for the result JSON (optional; auto-named if omitted)
+        provider: Explicit provider name; None keeps the legacy key-based inference
+        think: Keep local qwen3* thinking enabled (default off)
     """
     # Parse mode
     mode_map = {
@@ -236,7 +258,9 @@ def run_single_mode(api_key: str, mode: str, task: str = None, root_dir: str = D
         mode=mode_map[mode],
         model=model,
         root_dir=root_dir,
-        verbose=True
+        verbose=True,
+        provider=provider,
+        think=think
     )
     
     result = agent.execute_task(task, max_iterations=30)
@@ -298,7 +322,10 @@ def run_single_mode(api_key: str, mode: str, task: str = None, root_dir: str = D
             print(f"  • {tool_name}: {count} calls")
     
     # Save detailed results
-    output_file = output or f"result_{mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = output or (
+        f"result_{mode}_{_run_tag(provider, model)}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(output_file, 'w') as f:
         # Convert to serializable format. Store metrics as a dict (via asdict)
         # so the file can be re-loaded later by --report; tool calls likewise.
@@ -370,7 +397,8 @@ def select_mode_interactive():
 
 def run_comparison(api_key: str, task: str = None, root_dir: str = DEFAULT_ROOT_DIR,
                    model: str = DEFAULT_MODEL, output: str = None,
-                   cache_price_ratio: float = 0.1):
+                   cache_price_ratio: float = 0.1, provider: str = None,
+                   think: bool = False):
     """
     Run comparison across all modes
 
@@ -381,6 +409,8 @@ def run_comparison(api_key: str, task: str = None, root_dir: str = DEFAULT_ROOT_
         model: Model to use for all modes
         output: Output path for the comparison JSON (optional; auto-named if omitted)
         cache_price_ratio: Assumed price of a cached token vs a normal token (cost column)
+        provider: Explicit provider name; None keeps the legacy key-based inference
+        think: Keep local qwen3* thinking enabled (default off)
     """
     # Use default task if not provided
     if not task:
@@ -391,7 +421,8 @@ def run_comparison(api_key: str, task: str = None, root_dir: str = DEFAULT_ROOT_
     logger.info("="*80)
 
     # Run comparison
-    results = compare_implementations(api_key, task, root_dir, model=model)
+    results = compare_implementations(api_key, task, root_dir, model=model,
+                                      provider=provider, think=think)
 
     # Print comparison table
     print("\n" + "="*112)
@@ -445,7 +476,10 @@ def run_comparison(api_key: str, task: str = None, root_dir: str = DEFAULT_ROOT_
     print("  7. Text formatting breaks the structured message format that enables caching")
     
     # Save comparison results
-    output_file = output or f"comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = output or (
+        f"comparison_{_run_tag(provider, model)}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2, default=str)
 
@@ -458,18 +492,28 @@ def main():
         description="KV Cache 实验：用 ReAct Agent 对比不同上下文构造策略对前缀缓存"
                     "（KV Cache / Prompt Cache）命中率、TTFT 延迟与成本的影响。",
         epilog="示例：\n"
-               "  python main.py --mode correct                  # 运行单个策略\n"
+               "  python main.py --mode correct                  # 运行单个策略（默认 ollama 本地模型，读 .env）\n"
                "  python main.py --compare                       # 一次跑完所有策略并打印对比表\n"
                "  python main.py --report                        # 离线：读取已有 result_*.json 打印对比表（无需 API Key）\n"
-               "  python main.py --mode sliding_window --model kimi-k2.6 --output run.json\n"
+               "  python main.py --mode correct --think          # 保留本地模型 thinking 对比\n"
+               "  python main.py --mode sliding_window --provider kimi --model kimi-k2.6 --output run.json\n"
                "\n可选策略（--mode）：correct, dynamic_system, shuffled_tools,\n"
                "                      dynamic_profile, sliding_window, text_format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--api-key", type=str,
-                        help="Moonshot/Kimi API Key（也可用环境变量 MOONSHOT_API_KEY）")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL,
-                        help=f"使用的模型名（默认：{DEFAULT_MODEL}）")
+                        help="Moonshot/Kimi API Key（也可用环境变量 MOONSHOT_API_KEY；"
+                             "本地 ollama 无需 Key）")
+    parser.add_argument("--provider", type=str, default="ollama",
+                        choices=sorted(SUPPORTED_PROVIDERS),
+                        help="LLM provider（默认：ollama 本地端点，由 OLLAMA_BASE_URL / "
+                             "OLLAMA_MODEL 指定，无需 API Key；联网可用 kimi / openrouter 等）")
+    parser.add_argument("--model", type=str, default=None,
+                        help="使用的模型名（默认：provider=ollama 时读 OLLAMA_MODEL 环境变量"
+                             f"（缺省 qwen3.5-4b:q4），其余 provider 为 {DEFAULT_MODEL}）")
+    parser.add_argument("--think", action="store_true",
+                        help="保留本地 qwen3* 模型的 thinking（默认关闭：思考耗时是各模式共有"
+                             "的噪声，会污染 TTFT 对比；开启时自动放大 max_tokens 上限）")
     parser.add_argument("--mode", type=str,
                         help="运行单个策略：correct / dynamic_system / shuffled_tools / "
                              "dynamic_profile / sliding_window / text_format")
@@ -500,48 +544,49 @@ def main():
 
     # Get API key. 优先 Moonshot/Kimi 官方 key；缺失时回退到 OPENROUTER_API_KEY
     # （KVCacheAgent 会据此自动切换到 OpenRouter 端点并映射模型名）。
+    # 本地 ollama 无需任何 key（provider 注册表 requires_key=False，会给占位值）。
     api_key = (args.api_key or os.getenv("MOONSHOT_API_KEY")
                or os.getenv("KIMI_API_KEY") or os.getenv("OPENROUTER_API_KEY"))
-    if not api_key:
+    if not api_key and args.provider != "ollama":
         logger.error("请通过 --api-key 或环境变量 MOONSHOT_API_KEY / KIMI_API_KEY / "
                      "OPENROUTER_API_KEY 提供 API Key；"
+                     "或用 --provider ollama 走本地端点（无需 Key）；"
                      "若只想查看已有结果，可使用 --report（无需 API Key）。")
         sys.exit(1)
+
+    # Model resolution: ollama defaults to OLLAMA_MODEL (env), other providers
+    # keep the Kimi default. An explicit --model always wins.
+    model = args.model or (os.getenv("OLLAMA_MODEL", "qwen3.5-4b:q4")
+                           if args.provider == "ollama" else DEFAULT_MODEL)
+
+    # Shared arguments for every run path below.
+    common = dict(api_key=api_key, task=args.task, root_dir=args.root_dir,
+                  model=model, provider=args.provider, think=args.think,
+                  output=args.output)
 
     # Run based on mode
     if args.compare:
         # Explicit --compare flag overrides interactive mode
-        run_comparison(api_key, args.task, args.root_dir, args.model, args.output,
-                       args.cache_price_ratio)
+        run_comparison(**common, cache_price_ratio=args.cache_price_ratio)
     elif args.mode:
         # Explicit --mode flag overrides interactive mode
-        run_single_mode(api_key, args.mode, args.task, args.root_dir, args.model, args.output)
+        run_single_mode(**common, mode=args.mode)
     elif args.interactive and not args.task:
         # Interactive mode selection (default)
         selected_mode = select_mode_interactive()
         if selected_mode == "compare":
-            run_comparison(api_key, args.task, args.root_dir, args.model, args.output,
-                           args.cache_price_ratio)
+            run_comparison(**common, cache_price_ratio=args.cache_price_ratio)
         else:
-            run_single_mode(api_key, selected_mode, args.task, args.root_dir, args.model, args.output)
+            run_single_mode(**common, mode=selected_mode)
     else:
         # If task is provided without mode, ask which mode to use
         if args.task:
             print(f"\n📝 Custom task provided: {args.task}")
-            selected_mode = select_mode_interactive()
-            if selected_mode == "compare":
-                run_comparison(api_key, args.task, args.root_dir, args.model, args.output,
-                               args.cache_price_ratio)
-            else:
-                run_single_mode(api_key, selected_mode, args.task, args.root_dir, args.model, args.output)
+        selected_mode = select_mode_interactive()
+        if selected_mode == "compare":
+            run_comparison(**common, cache_price_ratio=args.cache_price_ratio)
         else:
-            # Fallback to interactive mode
-            selected_mode = select_mode_interactive()
-            if selected_mode == "compare":
-                run_comparison(api_key, args.task, args.root_dir, args.model, args.output,
-                               args.cache_price_ratio)
-            else:
-                run_single_mode(api_key, selected_mode, args.task, args.root_dir, args.model, args.output)
+            run_single_mode(**common, mode=selected_mode)
 
 
 if __name__ == "__main__":
