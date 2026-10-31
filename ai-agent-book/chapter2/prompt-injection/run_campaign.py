@@ -306,13 +306,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--protocol",
+        type=Path,
+        default=PROTOCOL_PATH,
+        help="协议 JSON 路径（默认上游冻结协议；本地复现传 experiment_protocol.local.json）",
+    )
     args = parser.parse_args()
     load_dotenv(HERE / ".env")
+    protocol_bytes = args.protocol.resolve().read_bytes()
+    protocol = json.loads(protocol_bytes)
+    # 上游冻结协议（moonshot/kimi）要求真实 key；本地协议（如 ollama）忽略
+    # key，但 OpenAI 客户端要求非空，故给占位值。
+    cloud_protocol = protocol["provider"].get("name", "") in ("moonshot", "kimi")
     key = os.getenv("MOONSHOT_API_KEY") or os.getenv("KIMI_API_KEY")
     if not key:
-        raise RuntimeError("MOONSHOT_API_KEY or KIMI_API_KEY is required")
-    protocol_bytes = PROTOCOL_PATH.read_bytes()
-    protocol = json.loads(protocol_bytes)
+        if cloud_protocol:
+            raise RuntimeError("MOONSHOT_API_KEY or KIMI_API_KEY is required")
+        key = "ollama"
     protocol_hash = sha256_bytes(protocol_bytes)
     run_dir = (args.output or HERE / "validation" / "runs" / f"exp2-5-{datetime.now().strftime('%Y%m%d-%H%M%S')}").resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -375,7 +386,10 @@ def main() -> int:
         "manifest_sha256": sha256_file(manifest_path),
         "status": comparison["status"],
     }
-    atomic_json(HERE / "validation" / "latest.json", latest)
+    # validation/latest.json 是上游 canonical（Kimi K3）证据指针，只允许
+    # 云端冻结协议战役覆盖；本地改编协议的结果保留在自己的 run_dir。
+    if cloud_protocol:
+        atomic_json(HERE / "validation" / "latest.json", latest)
     print(json.dumps(comparison, ensure_ascii=False, indent=2))
     return 0 if comparison["acceptance"]["passed"] else 1
 

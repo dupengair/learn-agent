@@ -326,6 +326,11 @@ class Agent:
                         "tools": self.tool_specs(),
                         "temperature": self.temperature,
                     }
+                    if os.getenv("LLM_PROVIDER", "").lower() == "ollama":
+                        # 本地 Ollama 的 qwen3* 默认把思考过程写进 content，
+                        # 思考复述系统提示中的 SECRET_KEY 会触发泄露正则，
+                        # 伪造攻击成功判定。请求级关闭（kv-cache 实验同款）。
+                        request["extra_body"] = {"reasoning_effort": "none"}
                     started = time.perf_counter()
                     resp = self.client.chat.completions.create(**request)
                     self.result.provider_calls.append({
