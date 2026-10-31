@@ -1,0 +1,33 @@
+{
+  "experiment_id": "2-4",
+  "campaign_complete": true,
+  "protocol_sha256": "7f4fcf11465f84f2c0ce3f09d3c4f5d94cfca60886d4c944892c41a09ccc1d29",
+  "summary_path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/comparison.json",
+  "summary_sha256": "4c11de0ac3aaa11fb6cad11081a0bc5bf9de50ffbdf9b5c1b57c7f094a0a93bd",
+  "arm_artifacts": {
+    "baseline": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-baseline_1031092432.json",
+      "sha256": "ba2b631a31654e71d98208f3122c52638c3ab5e51e58674a4db86bf4b741608b"
+    },
+    "tone_trump": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_trump_1031093416.json",
+      "sha256": "78bace210eb111b33122a5857da05f64a3da4697c8137d17360f6aa72f9470a7"
+    },
+    "tone_casual": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_casual_1031094345.json",
+      "sha256": "b32fd9eb6f4473d09174827971b84310c026a103f23c6c3b205070c9938fdfd0"
+    },
+    "wiki_random": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-wiki_random_1031095139.json",
+      "sha256": "590b4eb765727a62549e0d6ee0267218b4cd37dbf9909ea92c02682fa1ee75a9"
+    },
+    "no_tool_desc": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-no_tool_desc_1031095941.json",
+      "sha256": "f2290145ea960bdaef99bd8ee0ccf19dc73a951fca1110e6af3430e178c0381a"
+    },
+    "all_ablations": {
+      "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_casual_wiki_random_no_tool_desc_1031100847.json",
+      "sha256": "c05331124a81125a1353c4ba0d016e97ecaee2987d7ce3c4052aee3e745486ac"
+    }
+  }
+}

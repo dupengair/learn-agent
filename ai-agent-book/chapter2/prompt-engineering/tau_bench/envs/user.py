@@ -66,6 +66,10 @@ class LLMUserSimulationEnv(BaseUserSimulationEnv):
             "temperature": 1 if "kimi-k3" in self.model.lower() else 0,
             "max_tokens": max_tokens,
         }
+        if self.provider == "ollama":
+            # 同 ablation_agent：本地 Ollama 需关闭思考输出，否则模拟器回复
+            # 被 1k token 预算内的思考文本挤占，产生空/截断回复。
+            kwargs["think"] = False
         if requested_seed is not None:
             kwargs["seed"] = requested_seed
         started = time.perf_counter()

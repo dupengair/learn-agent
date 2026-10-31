@@ -168,6 +168,11 @@ class AblationAgent(Agent):
                     "temperature": self.temperature,
                     "max_tokens": completion_limit,
                 }
+                if self.provider == "ollama":
+                    # Ollama 本地模型默认把思考过程写进 content：占满 max_tokens
+                    # 且污染 respond 动作的对话文本。think=False 是推理服务采样层
+                    # 开关（不进入 prompt），对三个消融维度的实验语义无影响。
+                    completion_kwargs["think"] = False
                 requested_seed = (
                     self.seed + (task_index or 0) * 1000 + step
                     if self.seed is not None else None

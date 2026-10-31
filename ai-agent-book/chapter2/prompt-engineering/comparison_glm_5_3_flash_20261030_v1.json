@@ -1,0 +1,294 @@
+{
+  "experiment_id": "2-4",
+  "created_at": "2026-10-31T10:20:18.627338+08:00",
+  "protocol_sha256": "7f4fcf11465f84f2c0ce3f09d3c4f5d94cfca60886d4c944892c41a09ccc1d29",
+  "protocol_copy": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/experiment_protocol.json",
+  "provider": "openai",
+  "model": "glm-5.3-flash",
+  "user_model": "glm-5.3-flash",
+  "objective_scoring": "vendored tau-bench environment reward",
+  "arms": {
+    "baseline": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-baseline_1031092432.json",
+        "sha256": "ba2b631a31654e71d98208f3122c52638c3ab5e51e58674a4db86bf4b741608b"
+      },
+      "rewards": [
+        1.0,
+        0.0,
+        1.0
+      ],
+      "success_rate": 66.66666666666666,
+      "total": 3,
+      "successes": 2,
+      "failures": 1,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        12,
+        20,
+        28
+      ],
+      "tool_calls": [
+        5,
+        10,
+        24
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 84,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 510637,
+        "completion_tokens": 16594,
+        "total_tokens": 527231
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    },
+    "tone_trump": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_trump_1031093416.json",
+        "sha256": "78bace210eb111b33122a5857da05f64a3da4697c8137d17360f6aa72f9470a7"
+      },
+      "rewards": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "success_rate": 66.66666666666666,
+      "total": 3,
+      "successes": 2,
+      "failures": 1,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        10,
+        10,
+        30
+      ],
+      "tool_calls": [
+        4,
+        5,
+        25
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 69,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 487936,
+        "completion_tokens": 16993,
+        "total_tokens": 504929
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    },
+    "tone_casual": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_casual_1031094345.json",
+        "sha256": "b32fd9eb6f4473d09174827971b84310c026a103f23c6c3b205070c9938fdfd0"
+      },
+      "rewards": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "success_rate": 66.66666666666666,
+      "total": 3,
+      "successes": 2,
+      "failures": 1,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        10,
+        9,
+        29
+      ],
+      "tool_calls": [
+        4,
+        5,
+        25
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 66,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 434449,
+        "completion_tokens": 16202,
+        "total_tokens": 450651
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    },
+    "wiki_random": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-wiki_random_1031095139.json",
+        "sha256": "590b4eb765727a62549e0d6ee0267218b4cd37dbf9909ea92c02682fa1ee75a9"
+      },
+      "rewards": [
+        1.0,
+        0.0,
+        1.0
+      ],
+      "success_rate": 66.66666666666666,
+      "total": 3,
+      "successes": 2,
+      "failures": 1,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        11,
+        20,
+        29
+      ],
+      "tool_calls": [
+        4,
+        9,
+        25
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 85,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 523512,
+        "completion_tokens": 16750,
+        "total_tokens": 540262
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    },
+    "no_tool_desc": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-no_tool_desc_1031095941.json",
+        "sha256": "f2290145ea960bdaef99bd8ee0ccf19dc73a951fca1110e6af3430e178c0381a"
+      },
+      "rewards": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "success_rate": 33.33333333333333,
+      "total": 3,
+      "successes": 1,
+      "failures": 2,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        12,
+        17,
+        30
+      ],
+      "tool_calls": [
+        6,
+        9,
+        25
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 81,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 484413,
+        "completion_tokens": 18925,
+        "total_tokens": 503338
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    },
+    "all_ablations": {
+      "artifact": {
+        "path": "/home/dupengair/shared/LLM/ai-agent/ai-agent-book/chapter2/prompt-engineering/runs/exp2-4-glm-5.3-flash-20261030-v1/tool-calling-glm-5.3-flash-tone_casual_wiki_random_no_tool_desc_1031100847.json",
+        "sha256": "c05331124a81125a1353c4ba0d016e97ecaee2987d7ce3c4052aee3e745486ac"
+      },
+      "rewards": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "success_rate": 33.33333333333333,
+      "total": 3,
+      "successes": 1,
+      "failures": 2,
+      "tasks_completed": 3,
+      "expected_tasks": 3,
+      "task_errors": [],
+      "agent_steps": [
+        10,
+        18,
+        30
+      ],
+      "tool_calls": [
+        4,
+        10,
+        20
+      ],
+      "tool_errors": [
+        0,
+        0,
+        0
+      ],
+      "real_api_calls": 85,
+      "response_ids_present": true,
+      "usage": {
+        "prompt_tokens": 528391,
+        "completion_tokens": 20537,
+        "total_tokens": 548928
+      },
+      "observed_litellm_cost_usd": 0,
+      "all_calls_priced": false,
+      "native_cost_cny": null,
+      "arm_complete": true
+    }
+  },
+  "credential_scan_passed": true,
+  "credential_findings": [],
+  "usage_and_cost": {
+    "total_real_api_calls": 470,
+    "prompt_tokens": 2969338,
+    "completion_tokens": 106001,
+    "total_tokens": 3075339,
+    "observed_litellm_cost_usd": 0,
+    "all_calls_priced": false,
+    "native_cost_cny": 0,
+    "native_cost_complete": false,
+    "qualification": "provider usage with LiteLLM response-cost estimate"
+  },
+  "campaign_complete": true,
+  "hypothesis_results": {
+    "historical_percentages_reproduced": false,
+    "qualification": "Current fixed ten-task campaign only; compare arm metrics directly."
+  }
+}

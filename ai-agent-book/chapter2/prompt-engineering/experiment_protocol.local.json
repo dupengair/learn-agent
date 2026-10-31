@@ -1,0 +1,89 @@
+{
+  "experiment_id": "2-4",
+  "protocol_version": "1.0.0-local",
+  "frozen_on": "2026-10-30",
+  "authority": "book/chapter2.md:654 (local adaptation)",
+  "benchmark": "vendored tau-bench airline test split",
+  "provider": "Zhipu bigmodel.cn GLM Coding Plan (OpenAI-compatible /api/coding/paas/v4, routed via litellm openai provider)",
+  "model": "glm-5.3-flash",
+  "user_model": "glm-5.3-flash",
+  "temperature": 0,
+  "user_temperature": 0,
+  "seed": 20261030,
+  "task_ids": [0, 1, 2],
+  "trials_per_task": 1,
+  "max_agent_steps": 30,
+  "local_adaptation": {
+    "adapted_on": "2026-10-30",
+    "base_protocol": "experiment_protocol.json (frozen_on 2026-07-30, kimi-k3 via Moonshot)",
+    "reason": "Cloud reproduction on the user's GLM Coding Plan subscription (bigmodel.cn coding endpoint). Local Ollama candidates (qwen3.5-4b:q4, qwen3.6-35b-a3b:q4) passed link smoke tests but scored 0/4 tasks overall (step-exhaustion loops on a memorized legacy user id, premature transfer_to_human_agents) - below the tau-bench capability floor - so the campaign moved to a flagship-tier API model.",
+    "changed": [
+      "model and user_model: kimi-k3 -> glm-5.3-flash (Zhipu bigmodel.cn coding endpoint)",
+      "provider: Moonshot OpenAI-compatible -> Zhipu OpenAI-compatible coding endpoint",
+      "temperature and user_temperature: 1 -> 0 (small-model stability)",
+      "seed: 20260730 -> 20261030",
+      "task_ids: ten tasks -> first three tasks (smoke-scale campaign)"
+    ],
+    "unchanged": [
+      "six ablation arms",
+      "tau-bench objective scoring",
+      "max_agent_steps",
+      "trials_per_task"
+    ],
+    "expectation_note": "A 4B quantized model is far below the manuscript's GPT-5/Kimi operating point; low absolute pass rates are expected. Value lies in directional ablation signals, not in reproducing point estimates.",
+    "pricing_note": "Local inference is free; the original protocol's CNY pricing section is intentionally omitted. The kimi-k3 native-cost branch in run_full_suite is not triggered for this model."
+  },
+  "arms": {
+    "baseline": {
+      "tone": "professional neutral",
+      "wiki": "original structured rules",
+      "tool_descriptions": "complete"
+    },
+    "tone_trump": {
+      "tone": "exaggerated Trump-style",
+      "wiki": "original structured rules",
+      "tool_descriptions": "complete"
+    },
+    "tone_casual": {
+      "tone": "casual with emoji/slang",
+      "wiki": "original structured rules",
+      "tool_descriptions": "complete"
+    },
+    "wiki_random": {
+      "tone": "professional neutral",
+      "wiki": "same rules flattened and pre-shuffled",
+      "tool_descriptions": "complete"
+    },
+    "no_tool_desc": {
+      "tone": "professional neutral",
+      "wiki": "original structured rules",
+      "tool_descriptions": "all description fields blank"
+    },
+    "all_ablations": {
+      "tone": "casual with emoji/slang",
+      "wiki": "same rules flattened and pre-shuffled",
+      "tool_descriptions": "all description fields blank"
+    }
+  },
+  "metrics": [
+    "tau-bench objective reward/pass rate",
+    "agent steps and model calls",
+    "tool calls and environment tool errors",
+    "provider prompt/completion/total tokens"
+  ],
+  "acceptance_gates": [
+    "all six arms run the same task IDs with the same seed and user simulator",
+    "each task is scored only by the vendored tau-bench objective environment",
+    "every agent and simulated-user model call is a real provider response with ID and usage",
+    "raw request messages, tools, response content/tool calls, usage, timings, and trajectories are retained",
+    "the randomized wiki contains the same experimental rule material in the frozen pre-generated order",
+    "the no-description arm preserves schemas while blanking every nested description",
+    "campaign completion is independent of whether the manuscript hypotheses win",
+    "historical percentage claims are not treated as reproduced unless this fixed campaign independently yields them"
+  ],
+  "hypotheses": {
+    "tone": "tone variants have limited effect on objective task success",
+    "organization": "randomizing instruction organization reduces success",
+    "tool_descriptions": "removing descriptions increases tool errors and reduces success"
+  }
+}
